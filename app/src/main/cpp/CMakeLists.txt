@@ -14,6 +14,35 @@ project("miniplayer")
 # You can define multiple libraries, and CMake builds them for you.
 # Gradle automatically packages shared libraries with your APK.
 
+#添加头文件路径
+include_directories(${CMAKE_SOURCE_DIR}/../ffmpeg/include)
+#ffmpeg库路径
+set(libDir "${CMAKE_SOURCE_DIR}/../ffmpeg/libs/armeabi-v7a")
+
+#使用下面这种方式包含ffmpeg库，编译后的apk中会包含这些库
+#add_library(avcodec SHARED IMPORTED)
+#set_target_properties(avcodec PROPERTIES IMPORTED_LOCATION ${libDir}/libavcodec.so)
+#
+#add_library(avformat SHARED IMPORTED)
+#set_target_properties(avformat PROPERTIES IMPORTED_LOCATION ${libDir}/libavformat.so)
+#
+#add_library(avfilter SHARED IMPORTED)
+#set_target_properties(avfilter PROPERTIES IMPORTED_LOCATION ${libDir}/libavfilter.so)
+#
+#add_library(swresample SHARED IMPORTED)
+#set_target_properties(swresample PROPERTIES IMPORTED_LOCATION ${libDir}/libswresample.so)
+#
+#add_library(swscale SHARED IMPORTED)
+#set_target_properties(swscale PROPERTIES IMPORTED_LOCATION ${libDir}/libswscale.so)
+#
+#add_library(avutil SHARED IMPORTED)
+#set_target_properties(avutil PROPERTIES IMPORTED_LOCATION ${libDir}/libavutil.so)
+
+#使用这种方式在链接选项加入ffmpeg库路径，编译后的apk中不会包含这些库，这两种方式都可以编译过，但第二种在运行时会出错
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -L${libDir}")
+
+#message("xxx CMAKE_CXX_FLAGS")
+
 add_library( # Sets the name of the library.
              native-lib
 
@@ -42,6 +71,12 @@ find_library( # Sets the name of the path variable.
 
 target_link_libraries( # Specifies the target library.
                        native-lib
+                       avutil
+                       swresample
+                       swscale
+                       avcodec
+                       avformat
+                       avfilter
 
                        # Links the target library to the log library
                        # included in the NDK.

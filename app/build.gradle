@@ -18,6 +18,9 @@ android {
             cmake {
                 cppFlags ""
             }
+            ndk {
+                abiFilters "armeabi-v7a"
+            }
         }
     }
 
@@ -33,6 +36,14 @@ android {
             version "3.10.2"
         }
     }
+
+    sourceSets {
+        main {
+            //在CMakeList.txt中有addlibrary时在这里就不用再添加了，没有就需要添加(如使用链接命令的方式)
+            jniLibs.srcDirs = ['src/main/ffmpeg/libs']
+        }
+    }
+
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_1_8
         targetCompatibility JavaVersion.VERSION_1_8
@@ -40,7 +51,6 @@ android {
 }
 
 dependencies {
-
     implementation 'androidx.appcompat:appcompat:1.1.0'
     implementation 'com.google.android.material:material:1.1.0'
     implementation 'androidx.constraintlayout:constraintlayout:1.1.3'
