@@ -42,7 +42,7 @@ public class MainActivity extends AppCompatActivity {
                     ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED) {
                 Log.i("MiniPlayer","申请权限成功，打开");
                 //Open("/sdcard/video/chip_data.h264");
-                Open("/storage/emulated/0/vrtest/VRc.ts");
+                //Open("/storage/emulated/0/vrtest/VRc.ts");
             } else {
                 Log.i("MiniPlayer","申请权限失败");
             }
@@ -59,7 +59,7 @@ public class MainActivity extends AppCompatActivity {
             return false;
         } else {
             Log.i("MiniPlayer","有权限，打开文件");
-            Open("/storage/emulated/0/vrtest/VRc.ts");
+            //Open("/storage/emulated/0/vrtest/VRc.ts");
             return true;
         }
     }
