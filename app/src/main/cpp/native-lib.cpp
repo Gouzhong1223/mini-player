@@ -32,7 +32,6 @@ Java_com_example_miniplayer_MainActivity_Open(JNIEnv *env, jobject thiz, jstring
     FILE* fstream = fopen(_path,"r");
     if(fstream==NULL) {
         ALOGD("Open %s failed, %s\n", _path, strerror(errno));
-        //exit(1);
     }
     else {
         ALOGD("open file test.txt succeed!\n");
