@@ -18,10 +18,10 @@
         android:layout_height="wrap_content">
 
         <TextView
-            android:layout_marginLeft="10dp"
-            android:layout_width="40dp"
-            android:layout_height="wrap_content"
-            android:id="@+id/tv_start" />
+            android:id="@+id/tv_start"
+            android:layout_width="35dp"
+            android:layout_height="match_parent"
+            android:layout_marginLeft="10dp" />
 
         <SeekBar
             android:layout_width="270dp"
