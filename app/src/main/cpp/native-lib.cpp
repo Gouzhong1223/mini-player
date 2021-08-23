@@ -9,6 +9,8 @@
 
 extern "C" {
 #include <libavcodec/avcodec.h>
+#include <libavcodec/jni.h>
+#include <libavcodec/mediacodec.h>
 #include <libavformat/avformat.h>
 #include <libswscale/swscale.h>
 }
@@ -26,6 +28,12 @@ extern "C" {
 
 ANativeWindow *native_window = nullptr;
 const char *_path = nullptr;
+jobject _surface;
+
+jint JNI_OnLoad(JavaVM* vm, void* reserved){
+    av_jni_set_java_vm(vm, NULL);
+    return JNI_VERSION_1_6;
+}
 
 extern "C"
 JNIEXPORT jboolean JNICALL
@@ -51,7 +59,7 @@ Java_com_example_miniplayer_MiniPlayer_native_1setDataSource(JNIEnv *env, jobjec
     // TODO: implement native_setDataSource()
     const char *tpath = env->GetStringUTFChars(path, 0);
     _path = av_strdup(tpath);
-    ALOGD("Datasource:%s\n", _path);
+    ALOGD("path:%s\n", _path);
     env->ReleaseStringUTFChars(path, tpath);
 }
 
@@ -59,8 +67,10 @@ extern "C"
 JNIEXPORT void JNICALL
 Java_com_example_miniplayer_MiniPlayer_native_1setSurface(JNIEnv *env, jobject thiz, jobject surface) {
     // TODO: implement native_setSurface()
+    jobject _surface = env->NewGlobalRef(surface);
+    //_surface = surface;
     native_window = ANativeWindow_fromSurface(env, surface);
-    ALOGD("native_window:%p\n", native_window);
+    ALOGD("native_window:%p _surface:%p\n", native_window, _surface);
 }
 
 extern "C"
@@ -84,7 +94,7 @@ extern "C"
 JNIEXPORT jboolean JNICALL
 Java_com_example_miniplayer_MiniPlayer_native_1start(JNIEnv *env, jobject thiz) {
     //注册所有编解码器，解复用器，初始化网络
-    av_log_set_level(AV_LOG_TRACE);
+    av_log_set_level(AV_LOG_DEBUG);
     av_log_set_callback(ffp_log_callback_report);
     av_register_all();
     avformat_network_init();
@@ -95,7 +105,8 @@ Java_com_example_miniplayer_MiniPlayer_native_1start(JNIEnv *env, jobject thiz) 
     if (0 == ret) {
         ALOGD("avformat_open_input %s success!", _path);
     } else {
-        ALOGD("avformat_open_input failed! %s %d %s", _path, ret, av_err2str(ret));
+        ALOGD("avformat_open_input failed! %s %s", _path, av_err2str(ret));
+        return false;
     }
     //查找音视频信息
     ret = avformat_find_stream_info(ic, NULL);
@@ -131,8 +142,8 @@ Java_com_example_miniplayer_MiniPlayer_native_1start(JNIEnv *env, jobject thiz) 
 
     //打开视频解码器
     ALOGD("video codec_id:%d", ic->streams[videoStream]->codecpar->codec_id);
-    AVCodec *vcodec = avcodec_find_decoder(ic->streams[videoStream]->codecpar->codec_id);
-    //vcodec = avcodec_find_decoder_by_name("h264_mediacodec");
+    //AVCodec *vcodec = avcodec_find_decoder(ic->streams[videoStream]->codecpar->codec_id);
+    AVCodec *vcodec = avcodec_find_decoder_by_name("hevc_mediacodec");
     if (!vcodec) {
         ALOGD("avcodec_find_decoder video failed");
         return 0;
@@ -141,6 +152,8 @@ Java_com_example_miniplayer_MiniPlayer_native_1start(JNIEnv *env, jobject thiz) 
     //初始化解码器上下文
     AVCodecContext *vc = avcodec_alloc_context3(vcodec);
     avcodec_parameters_to_context(vc, ic->streams[videoStream]->codecpar);
+    //AVMediaCodecContext * media_codec_ctx = av_mediacodec_alloc_context();
+   // av_mediacodec_default_init(vc, media_codec_ctx, _surface);
     vc->thread_count = 8;
     //打开解码器
     ret = avcodec_open2(vc, NULL, NULL);  //AVCodec->init()
@@ -148,6 +161,7 @@ Java_com_example_miniplayer_MiniPlayer_native_1start(JNIEnv *env, jobject thiz) 
         ALOGD("avcodec_open2 video failed");
         return 0;
     }
+
 
     //打开音频解码器
     AVCodecContext *ac = NULL;
@@ -175,13 +189,14 @@ Java_com_example_miniplayer_MiniPlayer_native_1start(JNIEnv *env, jobject thiz) 
     AVFrame *frame = av_frame_alloc();
     int vframeCount = 0;
     SwsContext *vctx = NULL;
-    char *rgb = (char *) malloc(1920 * 1080 * 4);
+    char *rgb = (char *) malloc(19200 * 1080 * 4);
     ANativeWindow_Buffer wbuf;
 //    ANativeWindow_setBuffersGeometry(native_window, curr_w, curr_h, WINDOW_FORMAT_RGBA_8888);
 //    ANativeWindow_lock(native_window, &wbuf, 0);
 //    ANativeWindow_unlockAndPost(native_window);
     for (;;) {
         ret = av_read_frame(ic, pkt);
+        ALOGD("pkt.size:%d\n", pkt->size);
 
 
         if (0 != ret) {
@@ -200,14 +215,15 @@ Java_com_example_miniplayer_MiniPlayer_native_1start(JNIEnv *env, jobject thiz) 
 
         AVCodecContext *cc = vc;
         if (pkt->stream_index == audioStream && audioStream > 0)
-            cc = ac;
+            //cc = ac;
+            continue;
 
         //发送到线程中处理，pkt会被复制一份
         ret = avcodec_send_packet(cc, pkt);
         av_packet_unref(pkt);
 
         if (ret != 0) {
-            if (cc == vc) ALOGD("avcodec_send_packet video failed!");
+//            if (cc == vc) ALOGD("avcodec_send_packet video failed!");
 //            else
 //            ALOGD("avcodec_send_packet audio failed!");
             continue;
@@ -219,10 +235,15 @@ Java_com_example_miniplayer_MiniPlayer_native_1start(JNIEnv *env, jobject thiz) 
                 break;
             }
             if (cc == vc) {
+
+               // av_mediacodec_release_buffer((AVMediaCodecBuffer *)frame->data[3], 1);
+
                 vframeCount++;
                 static int init_once = 1;
 
                 //ALOGD("avcodec_receive_frame video");
+                ALOGD("sws_getCachedContext before, width:%d height:%d format:%d", frame->width, frame->height, frame->format);
+
                 vctx = sws_getCachedContext(vctx,
                                             frame->width,
                                             frame->height,
@@ -232,18 +253,22 @@ Java_com_example_miniplayer_MiniPlayer_native_1start(JNIEnv *env, jobject thiz) 
                                             AV_PIX_FMT_RGBA,
                                             SWS_FAST_BILINEAR,
                                             0, 0, 0);
+                ALOGD("sws_getCachedContext after");
                 if (!vctx) {
                     ALOGD("sws_getCachedContext failed!");
+                    return false;
                 } else {
                     uint8_t *data[AV_NUM_DATA_POINTERS] = {0};
                     data[0] = (uint8_t *) rgb;
                     int lines[AV_NUM_DATA_POINTERS] = {0};
                     lines[0] = frame->width * 4;
+                    ALOGD("sws_scale before");
                     int h = sws_scale(vctx,
                                       frame->data,
                                       frame->linesize, 0,
                                       frame->height,
                                       data, lines);
+                    ALOGD("sws_scale after h:%d", h);
                     ANativeWindow_setBuffersGeometry(native_window, frame->width, frame->height, WINDOW_FORMAT_RGBA_8888);
                     ANativeWindow_lock(native_window, &wbuf, 0);
 //    ANativeWindow_unlockAndPost(native_window);

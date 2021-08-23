@@ -156,17 +156,15 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                     break;
                 }
                 miniPlayer.native_setSurface(surfaceHolder.getSurface());
-                miniPlayer.native_setDataSource("/sdcard/video/chip_data.ts");
+                //miniPlayer.native_setDataSource("/sdcard/video/chip_data.ts");
+                miniPlayer.native_setDataSource("/storage/emulated/0/vrtest/VRc.ts");
                 miniPlayer.native_start();
+                Log.d(TAG, "start end");
                 break;
             }
         }
     }
 
-//    @Override
-//    void onStopTrackingTouch(SeekBar seekBar) {
-//
-//    }
     @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
