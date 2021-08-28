@@ -1,6 +1,7 @@
 package com.example.miniplayer;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.RequiresApi;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
@@ -10,7 +11,12 @@ import android.app.Activity;
 import android.content.Context;
 import android.content.pm.ActivityInfo;
 import android.content.pm.PackageManager;
+import android.media.MediaCodec;
+import android.media.MediaCodecInfo;
+import android.media.MediaCodecList;
+import android.os.Build;
 import android.os.Bundle;
+import android.text.TextUtils;
 import android.util.Log;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
@@ -24,6 +30,9 @@ import android.widget.Toast;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.Locale;
+
+import static android.media.MediaCodec.BUFFER_FLAG_CODEC_CONFIG;
 
 public class MainActivity extends AppCompatActivity implements View.OnClickListener{
     String TAG = "MiniPlayer";
@@ -113,24 +122,28 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 Log.d(TAG, "surfaceDestory");
             }
         });
-
+        Log.d(TAG, "onCreate thread");
 
         //请求权限
         RequestPermissions(MainActivity.this);
     }
 
+    @RequiresApi(api = Build.VERSION_CODES.Q)
     @Override
     public void onClick(View v) {
         switch (v.getId()) {
             case R.id.stop:{
+                surfaceView.setVisibility(View.VISIBLE);
                 Log.d(TAG, "stop click");
                 break;
             }
             case R.id.reset:{
+                surfaceView.setVisibility(View.VISIBLE);
                 Log.d(TAG, "reset click");
                 break;
             }
             case R.id.release:{
+                miniPlayer.native_release();
                 Log.d(TAG, "release click");
                 break;
             }
@@ -138,10 +151,42 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 Log.d(TAG, "setDataSource click");
                 break;
             }
-            case R.id.prepare:{
-                Log.d(TAG, "prepare click");
+            case R.id.prepare: {
+                int numCodecs = MediaCodecList.getCodecCount();
+                for (int i = 0; i < numCodecs; i++) {
+                    MediaCodecInfo codecInfo = MediaCodecList.getCodecInfoAt(i);
+                    String[] types = codecInfo.getSupportedTypes();
+                    String type = null;
+                    int isHardwareAccelerated = 0;
+                    int isSoftwareOnly = 1;
+                    int isVendor = 0;
+                    if (!codecInfo.isEncoder()) {
+                        continue;
+                    }
+                    for(String xtype : types) {
+                        if (TextUtils.isEmpty(xtype))
+                            continue;
+                        type = xtype;
+                    }
+                    if(codecInfo.isHardwareAccelerated())
+                        isHardwareAccelerated = 1;
+                    else
+                        isHardwareAccelerated = 0;
+                    if(codecInfo.isSoftwareOnly())
+                        isSoftwareOnly = 1;
+                    else
+                        isSoftwareOnly = 0;
+                    if(codecInfo.isVendor())
+                        isVendor = 1;
+                    else
+                        isVendor = 0;
+                    if(isVendor == 0 && isHardwareAccelerated == 0)
+                        continue;
+                    Log.d("MiniPlayer", String.format(Locale.US, "  found codec: %30s, \t\tsupprot type:%s, \tisHardwareAccelerated:%d isSoftwareOnly:%d isVendor:%d", codecInfo.getName(), type, isHardwareAccelerated, isSoftwareOnly, isVendor));
+                }
                 break;
             }
+            MediaCodec
             case R.id.restart:{
                 Log.d(TAG, "restart click");
                 break;
@@ -155,12 +200,16 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                     Log.d(TAG, "surfaceHolder is null");
                     break;
                 }
+//                Log.d(TAG, "onClick thread");
+//                while(true);
                 miniPlayer.native_setSurface(surfaceHolder.getSurface());
-                //miniPlayer.native_setDataSource("/sdcard/video/chip_data.ts");
-                miniPlayer.native_setDataSource("/storage/emulated/0/vrtest/VRc.ts");
+                miniPlayer.native_setDataSource("/sdcard/video/chip_data.ts");
+                miniPlayer.native_setLoglevel(miniPlayer.AV_LOG_INFO);
+//                miniPlayer.native_setDataSource("/storage/emulated/0/vrtest/VRc.ts");
                 miniPlayer.native_start();
-                Log.d(TAG, "start end");
-                break;
+//                Log.d(TAG, "start end");
+//                break;
+
             }
         }
     }
