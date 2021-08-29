@@ -167,6 +167,19 @@ Java_com_example_miniplayer_MiniPlayer_native_1start(JNIEnv *env, jobject thiz) 
 //    char *rgb = (char *) malloc(19200 * 1080 * 4);
 //    ANativeWindow_Buffer wbuf;
     AMediaCodec *codec = NULL;
+    AMediaFormat *format = AMediaFormat_new();
+    AMediaFormat_setString(format, "mime", "video/avc");
+    AMediaFormat_setInt32(format, "height", 800);
+    AMediaFormat_setInt32(format, "width", 600);
+    //AMediaFormat_setInt32(format, "decoder", 0);
+    //AMediaFormat_setInt32(format, "max-input-size", 0);
+
+    codec = AMediaCodec_createCodecByName("OMX.qcom.video.decoder.avc");
+    //codec = AMediaCodec_createDecoderByType("video/avc");
+    ALOGD("codec:%p", codec);
+    AMediaCodec_configure(codec, format, native_window, NULL, 0);
+    AMediaCodec_start(codec);
+
     for (;;) {
         ret = av_read_frame(ic, pkt);
 
@@ -186,9 +199,41 @@ Java_com_example_miniplayer_MiniPlayer_native_1start(JNIEnv *env, jobject thiz) 
         else {
             ALOGD("unkown packet type!");
         }
-        codec = AMediaCodec_createCodecByName("OMX.qcom.video.encoder.avc");
-        AMediaCodec_configure(codec, format, native_window, NULL, 0);
 
+
+        ssize_t bufidx = -1;
+        bufidx = AMediaCodec_dequeueInputBuffer(codec, 2000);
+        ALOGD("input buffer %zd", bufidx);
+        if (bufidx >= 0) {
+            size_t bufsize;
+            uint8_t* buf = AMediaCodec_getInputBuffer(codec, bufidx, &bufsize);
+            memcpy(buf, pkt->data, pkt->size);
+            AMediaCodec_queueInputBuffer(codec, bufidx, 0, pkt->size, pkt->pts, 0);
+        }
+
+        AMediaCodecBufferInfo info;
+        ssize_t status = AMediaCodec_dequeueOutputBuffer(codec, &info, 0);
+        if (status >= 0) {
+            if (info.flags & AMEDIACODEC_BUFFER_FLAG_END_OF_STREAM) {
+                ALOGD("output EOS");
+            }
+            AMediaCodec_releaseOutputBuffer(codec, status, info.size != 0);
+
+        } else if (status == AMEDIACODEC_INFO_OUTPUT_BUFFERS_CHANGED) {
+            ALOGD("output buffers changed");
+        } else if (status == AMEDIACODEC_INFO_OUTPUT_FORMAT_CHANGED) {
+            auto format = AMediaCodec_getOutputFormat(codec);
+            ALOGD("format changed to: %s", AMediaFormat_toString(format));
+            AMediaFormat_delete(format);
+        } else if (status == AMEDIACODEC_INFO_TRY_AGAIN_LATER) {
+            ALOGD("no output buffer right now");
+        } else {
+            ALOGD("unexpected info code: %zd", status);
+        }
+
+        usleep(30000);
+
+        //AMediaFormat_getString
 //        //发送到线程中处理，pkt会被复制一份
 //        ret = avcodec_send_packet(cc, pkt);
 //        av_packet_unref(pkt);

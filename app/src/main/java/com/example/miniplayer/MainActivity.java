@@ -157,10 +157,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                     MediaCodecInfo codecInfo = MediaCodecList.getCodecInfoAt(i);
                     String[] types = codecInfo.getSupportedTypes();
                     String type = null;
-                    int isHardwareAccelerated = 0;
-                    int isSoftwareOnly = 1;
-                    int isVendor = 0;
-                    if (!codecInfo.isEncoder()) {
+                    if (codecInfo.isEncoder()) {
                         continue;
                     }
                     for(String xtype : types) {
@@ -168,25 +165,25 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                             continue;
                         type = xtype;
                     }
-                    if(codecInfo.isHardwareAccelerated())
-                        isHardwareAccelerated = 1;
-                    else
-                        isHardwareAccelerated = 0;
-                    if(codecInfo.isSoftwareOnly())
-                        isSoftwareOnly = 1;
-                    else
-                        isSoftwareOnly = 0;
-                    if(codecInfo.isVendor())
-                        isVendor = 1;
-                    else
-                        isVendor = 0;
-                    if(isVendor == 0 && isHardwareAccelerated == 0)
-                        continue;
-                    Log.d("MiniPlayer", String.format(Locale.US, "  found codec: %30s, \t\tsupprot type:%s, \tisHardwareAccelerated:%d isSoftwareOnly:%d isVendor:%d", codecInfo.getName(), type, isHardwareAccelerated, isSoftwareOnly, isVendor));
+//                    if(codecInfo.isHardwareAccelerated())
+//                        isHardwareAccelerated = 1;
+//                    else
+//                        isHardwareAccelerated = 0;
+//                    if(codecInfo.isSoftwareOnly())
+//                        isSoftwareOnly = 1;
+//                    else
+//                        isSoftwareOnly = 0;
+//                    if(codecInfo.isVendor())
+//                        isVendor = 1;
+//                    else
+//                        isVendor = 0;
+//                    if(isVendor == 0 && isHardwareAccelerated == 0)
+//                        continue;
+                    Log.d("MiniPlayer", String.format(Locale.US, "  found codec: %-30s, \t\tsupprot type:%s", codecInfo.getName(), type));
                 }
                 break;
             }
-            MediaCodec
+
             case R.id.restart:{
                 Log.d(TAG, "restart click");
                 break;
@@ -203,9 +200,10 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 //                Log.d(TAG, "onClick thread");
 //                while(true);
                 miniPlayer.native_setSurface(surfaceHolder.getSurface());
-                miniPlayer.native_setDataSource("/sdcard/video/chip_data.ts");
+                //miniPlayer.native_setDataSource("/sdcard/video/chip_data.ts");
+                //miniPlayer.native_setDataSource("/sdcard/cctv8.ts");
                 miniPlayer.native_setLoglevel(miniPlayer.AV_LOG_INFO);
-//                miniPlayer.native_setDataSource("/storage/emulated/0/vrtest/VRc.ts");
+                miniPlayer.native_setDataSource("/storage/emulated/0/vrtest/chip_data.ts");
                 miniPlayer.native_start();
 //                Log.d(TAG, "start end");
 //                break;
