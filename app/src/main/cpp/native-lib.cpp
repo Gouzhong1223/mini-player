@@ -35,15 +35,22 @@ typedef struct _MiniPlayer {
     const char *_path = nullptr;
     AMediaCodec *codec = NULL;
     pthread_t decode_thread;
-    int loglevel = AV_LOG_INFO;
 }MiniPlayer;
 
+MiniPlayer *get_MiniPlayer(JNIEnv *env, jobject thiz)
+{
+    jclass clazz = env->FindClass("com/example/miniplayer/MiniPlayer");
+    //class, member_name, type， "J":long
+    jfieldID mNativeMiniPlayer = env->GetFieldID(clazz, "mNativeMiniPlayer", "J");
+    MiniPlayer *miniplayer = (MiniPlayer *)env->GetLongField(thiz, mNativeMiniPlayer);
+    return miniplayer;
+}
 
 extern "C"
 JNIEXPORT void JNICALL
-Java_com_example_miniplayer_MiniPlayer_native_1setDataSource(JNIEnv *env, jobject thiz, jlong mp, jstring path) {
+Java_com_example_miniplayer_MiniPlayer_native_1setDataSource(JNIEnv *env, jobject thiz, jstring path) {
     // TODO: implement native_setDataSource()
-    MiniPlayer *mpp = (MiniPlayer *)mp;
+    MiniPlayer *mpp = get_MiniPlayer(env, thiz);
     const char *tpath = env->GetStringUTFChars(path, 0);
     mpp->_path = av_strdup(tpath);
     ALOGD("path:%s\n", mpp->_path);
@@ -53,10 +60,10 @@ Java_com_example_miniplayer_MiniPlayer_native_1setDataSource(JNIEnv *env, jobjec
 
 extern "C"
 JNIEXPORT void JNICALL
-Java_com_example_miniplayer_MiniPlayer_native_1setSurface(JNIEnv *env, jobject thiz, jlong mp, jobject jsurface) {
+Java_com_example_miniplayer_MiniPlayer_native_1setSurface(JNIEnv *env, jobject thiz, jobject jsurface) {
     // TODO: implement native_setSurface()
     //jobject _surface = env->NewGlobalRef(jsurface);
-    //_surface = surface;
+    //_surface = surface;s
    // jclass clazz=env->FindClass("android/view/Surface");
 
    // jfieldID field_surface = env->GetFieldID(clazz, "mNativeObject","J");
@@ -67,7 +74,7 @@ Java_com_example_miniplayer_MiniPlayer_native_1setSurface(JNIEnv *env, jobject t
    // }
 
     //_surface = (void*) env->GetIntField(jsurface, field_surface);
-    MiniPlayer *mpp = (MiniPlayer *)mp;
+    MiniPlayer *mpp = get_MiniPlayer(env, thiz);
     mpp->native_window = ANativeWindow_fromSurface(env, jsurface);
     ALOGD("native_window:%p _surface:%p\n", mpp->native_window);
 }
@@ -100,7 +107,7 @@ jint JNI_OnLoad(JavaVM* vm, void* reserved)
     return JNI_VERSION_1_6;
 }
 
-extern "C"
+//extern "C"
 void *decode_thread(void *mp)
 {
     MiniPlayer *mpp = (MiniPlayer *)mp;
@@ -116,6 +123,7 @@ void *decode_thread(void *mp)
     //查找音视频信息
     ret = avformat_find_stream_info(ic, NULL);
     av_dump_format(ic, 0, mpp->_path, 0);
+    ALOGD("nb_streams:%d\n", ic->nb_streams);
 
     //使用av_find_best_stream获取音视频stream index
     int audioStream = av_find_best_stream(ic, AVMEDIA_TYPE_AUDIO, -1, -1, NULL, 0);
@@ -142,14 +150,16 @@ void *decode_thread(void *mp)
     AVPacket *pkt = av_packet_alloc();
     AMediaCodec *codec = NULL;
     AMediaFormat *format = AMediaFormat_new();
-    AMediaFormat_setString(format, "mime", "video/hevc");
-    AMediaFormat_setInt32(format, "height", 2160);
-    AMediaFormat_setInt32(format, "width", 3840);
-    codec = AMediaCodec_createCodecByName("OMX.qcom.video.decoder.hevc");
+    AMediaFormat_setString(format, "mime", "video/avc");
+    AMediaFormat_setInt32(format, "height", 4320);
+    AMediaFormat_setInt32(format, "width", 7680);
+    //OMX.qcom.video.decoder.avc
+    codec = AMediaCodec_createCodecByName("OMX.qcom.video.decoder.avc");
 
-    //codec = AMediaCodec_createDecoderByType("video/avc");
+    //codec = AMediaCodec_createDecoderByType("video/hevc");
     ALOGD("codec:%p", codec);
-    AMediaCodec_configure(codec, format, mpp->native_window, NULL, 0);
+    media_status_t s= AMediaCodec_configure(codec, format, mpp->native_window, NULL, 0);
+    ALOGD("media_status_t:%d", s);
     AMediaCodec_start(codec);
 
     for (;;) {
@@ -173,7 +183,7 @@ void *decode_thread(void *mp)
             continue;
         }
 
-        //av_packet_split_side_data(pkt);
+        av_packet_split_side_data(pkt);
         ALOGD("size:%d", pkt->size);
 //        ALOGD("split after size:%d", pkt->size);
 //        if(pkt->size > 0) {
@@ -187,7 +197,7 @@ void *decode_thread(void *mp)
         if (bufidx >= 0) {
             size_t bufsize;
             uint8_t* buf = AMediaCodec_getInputBuffer(codec, bufidx, &bufsize);
-            //ALOGD("bufsize:%d\n", bufsize);
+            ALOGD("bufsize:%d\n", bufsize);
             memcpy(buf, pkt->data, pkt->size);
             AMediaCodec_queueInputBuffer(codec, bufidx, 0, pkt->size, pkt->pts, 0);
         }
@@ -205,13 +215,13 @@ void *decode_thread(void *mp)
             ALOGD("output buffers changed");
         } else if (status == AMEDIACODEC_INFO_OUTPUT_FORMAT_CHANGED) {
             auto format = AMediaCodec_getOutputFormat(codec);
-            ALOGD("format changed to: %s", AMediaFormat_toString(format));
+            ALOGD("format changed to: %s", AMediaFormat_toString(format));+
             AMediaFormat_delete(format);
             //while(1);
         } else if (status == AMEDIACODEC_INFO_TRY_AGAIN_LATER) {
-            //ALOGD("no output buffer right now");
+            ALOGD("no output buffer right now %zd", status);
         } else {
-            //ALOGD("unexpected info code: %zd", status);
+            ALOGD("unexpected info code: %zd", status);
         }
 
         usleep(20000);
@@ -221,8 +231,8 @@ void *decode_thread(void *mp)
 
 extern "C"
 JNIEXPORT jboolean JNICALL
-Java_com_example_miniplayer_MiniPlayer_native_1start(JNIEnv *env, jobject thiz, jlong mp) {
-    MiniPlayer *mpp = (MiniPlayer *)mp;
+Java_com_example_miniplayer_MiniPlayer_native_1start(JNIEnv *env, jobject thiz) {
+    MiniPlayer *mpp = get_MiniPlayer(env, thiz);
 
     pthread_create(&mpp->decode_thread, NULL, decode_thread, mpp);
 
@@ -367,18 +377,19 @@ Java_com_example_miniplayer_MiniPlayer_native_1start(JNIEnv *env, jobject thiz, 
 
 extern "C"
 JNIEXPORT void JNICALL
-Java_com_example_miniplayer_MiniPlayer_native_1release(JNIEnv *env, jobject thiz, jlong mp) {
+Java_com_example_miniplayer_MiniPlayer_native_1release(JNIEnv *env, jobject thiz) {
     // TODO: implement native_release()
-    MiniPlayer *mpp = (MiniPlayer *)mp;
+    MiniPlayer *mpp = get_MiniPlayer(env, thiz);
     ANativeWindow_release(mpp->native_window);
-}extern "C"
+}
 
-JNIEXPORT void JNICALL
-Java_com_example_miniplayer_MiniPlayer_native_1setLoglevel(JNIEnv *env, jobject thiz, jlong mp, jint level) {
-    // TODO: implement native_setLoglevel()
-    MiniPlayer *mpp = (MiniPlayer *)mp;
-    mpp->loglevel = level;
-}extern "C"
+//extern "C"
+//JNIEXPORT void JNICALL
+//Java_com_example_miniplayer_MiniPlayer_native_1setLoglevel(JNIEnv *env, jint level) {
+//    // TODO: implement native_setLoglevel()
+////    MiniPlayer *mpp = get_MiniPlayer(env, thiz);
+////    mpp->loglevel = level;
+//}
 
 extern "C"
 JNIEXPORT void JNICALL
@@ -389,4 +400,10 @@ Java_com_example_miniplayer_MiniPlayer_native_1setup(JNIEnv *env, jobject thiz) 
     //class, member_name, type， "J":long
     jfieldID mNativeMiniPlayer = env->GetFieldID(clazz, "mNativeMiniPlayer", "J");
     env->SetLongField(thiz, mNativeMiniPlayer, mp);
+}
+
+extern "C"
+JNIEXPORT void JNICALL
+Java_com_example_miniplayer_MiniPlayer_native_1setLoglevel(JNIEnv *env, jclass clazz, jint level) {
+    // TODO: implement native_setLoglevel()
 }

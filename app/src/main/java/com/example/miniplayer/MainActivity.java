@@ -43,7 +43,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     private SurfaceView surfaceView1;
     private SurfaceView surfaceView2;
     private SurfaceView surfaceView3;
-    private MiniPlayer miniPlayer;
+    //private MiniPlayer miniPlayer;
     Button stopButton;
     Button resetButton;
     Button releaseButton;
@@ -61,12 +61,12 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
         @Override
         public void onStartTrackingTouch(SeekBar seekBar) {
-            Log.d(TAG, "onStartTrackingTouch, " + miniPlayer);
+            Log.d(TAG, "onStartTrackingTouch, ");
         }
 
         @Override
         public void onStopTrackingTouch(SeekBar seekBar) {
-            Log.d(TAG, "onStartTrackingTouch, " + miniPlayer);
+            Log.d(TAG, "onStartTrackingTouch, ");
         }
     };
     // Used to load the 'native-lib' library on application startup.
@@ -113,11 +113,11 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         surfaceView3 = findViewById(R.id.surfaceView3);
         surfaceHolder3 = surfaceView3.getHolder();
 
-        miniPlayer = new MiniPlayer();
+        //miniPlayer = new MiniPlayer();
         surfaceHolder1.addCallback(new SurfaceHolder.Callback() {
             @Override
             public void surfaceCreated(SurfaceHolder holder) {
-                Log.d(TAG, "1surfaceCreated, " + miniPlayer);
+                Log.d(TAG, "1surfaceCreated, ");
                 surfaceHolder1 = holder;
             }
 
@@ -135,7 +135,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         surfaceHolder2.addCallback(new SurfaceHolder.Callback() {
             @Override
             public void surfaceCreated(SurfaceHolder holder) {
-                Log.d(TAG, "2surfaceCreated, " + miniPlayer);
+                Log.d(TAG, "2surfaceCreated, ");
                 surfaceHolder2 = holder;
             }
 
@@ -215,24 +215,26 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
             case R.id.restart:{
                 Log.d(TAG, "restart click");
-                long mp = miniPlayer.native_createPlayer();
-                miniPlayer.native_setSurface(mp, surfaceHolder1.getSurface());
-                miniPlayer.native_setDataSource(mp,"/sdcard/video/VR.ts");
+                MiniPlayer miniPlayer = new MiniPlayer();
+                miniPlayer.native_setup();
+                miniPlayer.setSurface(surfaceHolder1.getSurface());
+//                miniPlayer.setDataSource("/sdcard/video/VR.ts");
                 //miniPlayer.native_setDataSource("/sdcard/cctv8.ts");
-                miniPlayer.native_setLoglevel(mp, miniPlayer.AV_LOG_INFO);
-                //miniPlayer.native_setDataSource(mp, "/storage/emulated/0/vrtest/VRc.ts");
-                miniPlayer.native_start(mp);
+                //miniPlayer.setLoglevel(miniPlayer.AV_LOG_INFO);
+                miniPlayer.setDataSource("/storage/emulated/0/DCIM/Camera/VID_20210503_093447.mp4");
+                miniPlayer.start();
                 break;
             }
             case R.id.pause: {
                 Log.d(TAG, "pause click");
-                long mp = miniPlayer.native_createPlayer();
-                miniPlayer.native_setSurface(mp, surfaceHolder2.getSurface());
-                miniPlayer.native_setDataSource(mp,"/sdcard/video/VR.ts");
+                MiniPlayer miniPlayer = new MiniPlayer();
+                miniPlayer.native_setup();
+                miniPlayer.setSurface(surfaceHolder2.getSurface());
+                //miniPlayer.setDataSource("/sdcard/video/VR.ts");
                 //miniPlayer.native_setDataSource("/sdcard/cctv8.ts");
-                miniPlayer.native_setLoglevel(mp, miniPlayer.AV_LOG_INFO);
-                //miniPlayer.native_setDataSource(mp, "/storage/emulated/0/vrtest/VRc.ts");
-                miniPlayer.native_start(mp);
+                //miniPlayer.setLoglevel(miniPlayer.AV_LOG_INFO);
+                miniPlayer.setDataSource("/storage/emulated/0/vrtest/cctv8.ts");
+                miniPlayer.start();
                 break;
             }
             case R.id.start: {
@@ -240,16 +242,14 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                     Log.d(TAG, "surfaceHolder is null");
                     break;
                 }
-//                Log.d(TAG, "onClick thread");
-//                while(true);
-                long mp = miniPlayer.native_createPlayer();
-                miniPlayer.native_setSurface(mp, surfaceHolder3.getSurface());
-                miniPlayer.native_setDataSource(mp,"/sdcard/video/VR.ts");
+                MiniPlayer miniPlayer = new MiniPlayer();
+                miniPlayer.native_setup();
+                miniPlayer.setSurface(surfaceHolder3.getSurface());
+               // miniPlayer.setDataSource("/sdcard/video/VR.ts");
                 //miniPlayer.native_setDataSource("/sdcard/cctv8.ts");
-                miniPlayer.native_setLoglevel(mp, miniPlayer.AV_LOG_INFO);
-                //miniPlayer.native_setDataSource(mp, "/storage/emulated/0/vrtest/VRc.ts");
-                miniPlayer.native_start(mp);
-//                Log.d(TAG, "start end");
+                //miniPlayer.setLoglevel(miniPlayer.AV_LOG_INFO);
+                miniPlayer.setDataSource("/storage/emulated/0/vrtest/VRc.ts");
+                miniPlayer.start();
 //                break;
 
             }
