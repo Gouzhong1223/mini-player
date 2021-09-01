@@ -14,9 +14,33 @@ public class MiniPlayer {
     public int AV_LOG_DEBUG = 48;
     public int AV_LOG_TRACE = 56;
 
+    private long mNativeMiniPlayer;
+
+    public void setDataSource(String path) {
+        native_setDataSource(path);
+    }
+
+    public void setSurface(Surface surface) {
+        native_setSurface(surface);
+    }
+
+    public void start() {
+        native_start();
+    }
+
+    public void release() {
+        native_release();
+    }
+
+    public static void setLoglevel(int level) {
+        native_setLoglevel(level);
+    }
+
     public native void native_setDataSource(String path);
     public native void native_setSurface(Surface surface);
-    public native void native_setLoglevel(int level);
     public native boolean native_start();
+    public native void native_setup();
     public native void native_release();
+
+    public static native void native_setLoglevel(int level);
 }

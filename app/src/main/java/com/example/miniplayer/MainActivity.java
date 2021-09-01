@@ -37,8 +37,12 @@ import static android.media.MediaCodec.BUFFER_FLAG_CODEC_CONFIG;
 public class MainActivity extends AppCompatActivity implements View.OnClickListener{
     String TAG = "MiniPlayer";
     private static final int WRITE_STORAGE_REQUEST_CODE = 100;
-    private SurfaceHolder surfaceHolder;
-    private SurfaceView surfaceView;
+    private SurfaceHolder surfaceHolder1;
+    private SurfaceHolder surfaceHolder2;
+    private SurfaceHolder surfaceHolder3;
+    private SurfaceView surfaceView1;
+    private SurfaceView surfaceView2;
+    private SurfaceView surfaceView3;
     private MiniPlayer miniPlayer;
     Button stopButton;
     Button resetButton;
@@ -83,7 +87,6 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 //        //横屏
 //        setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
         setContentView(R.layout.activity_main);
-        surfaceView = findViewById(R.id.surfaceView);
         stopButton = findViewById(R.id.stop);
         stopButton.setOnClickListener(this);
         resetButton = findViewById(R.id.reset);
@@ -102,19 +105,25 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         startButton.setOnClickListener(this);
         seekBar = findViewById(R.id.seekbar);
         seekBar.setOnSeekBarChangeListener(onSeekBarChangeListener);
-        surfaceView = findViewById(R.id.surfaceView);
-        surfaceHolder = surfaceView.getHolder();
+
+        surfaceView1 = findViewById(R.id.surfaceView1);
+        surfaceHolder1 = surfaceView1.getHolder();
+        surfaceView2 = findViewById(R.id.surfaceView2);
+        surfaceHolder2 = surfaceView2.getHolder();
+        surfaceView3 = findViewById(R.id.surfaceView3);
+        surfaceHolder3 = surfaceView3.getHolder();
+
         miniPlayer = new MiniPlayer();
-        surfaceHolder.addCallback(new SurfaceHolder.Callback() {
+        surfaceHolder1.addCallback(new SurfaceHolder.Callback() {
             @Override
             public void surfaceCreated(SurfaceHolder holder) {
-                Log.d(TAG, "surfaceCreated, " + miniPlayer);
-                surfaceHolder = holder;
+                Log.d(TAG, "1surfaceCreated, " + miniPlayer);
+                surfaceHolder1 = holder;
             }
 
             @Override
             public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {
-                Log.d(TAG, "surfaceChanged, format:" + format + " width:" + width + " height:" + height);
+                Log.d(TAG, "1surfaceChanged, format:" + format + " width:" + width + " height:" + height);
             }
 
             @Override
@@ -122,6 +131,25 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 Log.d(TAG, "surfaceDestory");
             }
         });
+
+        surfaceHolder2.addCallback(new SurfaceHolder.Callback() {
+            @Override
+            public void surfaceCreated(SurfaceHolder holder) {
+                Log.d(TAG, "2surfaceCreated, " + miniPlayer);
+                surfaceHolder2 = holder;
+            }
+
+            @Override
+            public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {
+                Log.d(TAG, "2surfaceChanged, format:" + format + " width:" + width + " height:" + height);
+            }
+
+            @Override
+            public void surfaceDestroyed(SurfaceHolder holder) {
+                Log.d(TAG, "surfaceDestory");
+            }
+        });
+
         Log.d(TAG, "onCreate thread");
 
         //请求权限
@@ -133,17 +161,18 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     public void onClick(View v) {
         switch (v.getId()) {
             case R.id.stop:{
-                surfaceView.setVisibility(View.VISIBLE);
+                surfaceView1.setVisibility(View.VISIBLE);
+                surfaceView2.setVisibility(View.VISIBLE);
                 Log.d(TAG, "stop click");
                 break;
             }
             case R.id.reset:{
-                surfaceView.setVisibility(View.VISIBLE);
+                surfaceView1.setVisibility(View.VISIBLE);
                 Log.d(TAG, "reset click");
                 break;
             }
             case R.id.release:{
-                miniPlayer.native_release();
+                //miniPlayer.native_release();
                 Log.d(TAG, "release click");
                 break;
             }
@@ -186,25 +215,40 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
             case R.id.restart:{
                 Log.d(TAG, "restart click");
+                long mp = miniPlayer.native_createPlayer();
+                miniPlayer.native_setSurface(mp, surfaceHolder1.getSurface());
+                miniPlayer.native_setDataSource(mp,"/sdcard/video/VR.ts");
+                //miniPlayer.native_setDataSource("/sdcard/cctv8.ts");
+                miniPlayer.native_setLoglevel(mp, miniPlayer.AV_LOG_INFO);
+                //miniPlayer.native_setDataSource(mp, "/storage/emulated/0/vrtest/VRc.ts");
+                miniPlayer.native_start(mp);
                 break;
             }
             case R.id.pause: {
                 Log.d(TAG, "pause click");
+                long mp = miniPlayer.native_createPlayer();
+                miniPlayer.native_setSurface(mp, surfaceHolder2.getSurface());
+                miniPlayer.native_setDataSource(mp,"/sdcard/video/VR.ts");
+                //miniPlayer.native_setDataSource("/sdcard/cctv8.ts");
+                miniPlayer.native_setLoglevel(mp, miniPlayer.AV_LOG_INFO);
+                //miniPlayer.native_setDataSource(mp, "/storage/emulated/0/vrtest/VRc.ts");
+                miniPlayer.native_start(mp);
                 break;
             }
             case R.id.start: {
-                if(surfaceHolder == null) {
+                if(surfaceHolder1 == null || surfaceHolder2 == null) {
                     Log.d(TAG, "surfaceHolder is null");
                     break;
                 }
 //                Log.d(TAG, "onClick thread");
 //                while(true);
-                miniPlayer.native_setSurface(surfaceHolder.getSurface());
-                //miniPlayer.native_setDataSource("/sdcard/video/chip_data.ts");
+                long mp = miniPlayer.native_createPlayer();
+                miniPlayer.native_setSurface(mp, surfaceHolder3.getSurface());
+                miniPlayer.native_setDataSource(mp,"/sdcard/video/VR.ts");
                 //miniPlayer.native_setDataSource("/sdcard/cctv8.ts");
-                miniPlayer.native_setLoglevel(miniPlayer.AV_LOG_INFO);
-                miniPlayer.native_setDataSource("/storage/emulated/0/vrtest/chip_data.ts");
-                miniPlayer.native_start();
+                miniPlayer.native_setLoglevel(mp, miniPlayer.AV_LOG_INFO);
+                //miniPlayer.native_setDataSource(mp, "/storage/emulated/0/vrtest/VRc.ts");
+                miniPlayer.native_start(mp);
 //                Log.d(TAG, "start end");
 //                break;
 

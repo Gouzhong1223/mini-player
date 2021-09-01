@@ -2,6 +2,7 @@
 #include <string>
 #include <stdio.h>
 #include <errno.h>
+#include <pthread.h>
 #include <android/log.h>
 #include <android/native_window.h>
 #include <android/native_window_jni.h>
@@ -29,32 +30,30 @@ extern "C" {
 #define ALOGW(formate, ...) {__android_log_print(ANDROID_LOG_WARN, LOG_TAG, "[%s %s:%d]\t" formate, __FUNCTION__, __FILENAME__, __LINE__, ##__VA_ARGS__);}
 #define ALOGE(formate, ...) {__android_log_print(ANDROID_LOG_ERROR, LOG_TAG, "[%s %s:%d]\t" formate, __FUNCTION__, __FILENAME__, __LINE__, ##__VA_ARGS__);}
 
-ANativeWindow *native_window = nullptr;
-ANativeWindow *_surface = nullptr;
-const char *_path = nullptr;
-AMediaCodec *codec = NULL;
-int loglevel = AV_LOG_INFO;
-//void *_surface;
+typedef struct _MiniPlayer {
+    ANativeWindow *native_window = nullptr;
+    const char *_path = nullptr;
+    AMediaCodec *codec = NULL;
+    pthread_t decode_thread;
+    int loglevel = AV_LOG_INFO;
+}MiniPlayer;
 
-jint JNI_OnLoad(JavaVM* vm, void* reserved){
-    av_jni_set_java_vm(vm, NULL);
-    return JNI_VERSION_1_6;
-}
 
 extern "C"
 JNIEXPORT void JNICALL
-Java_com_example_miniplayer_MiniPlayer_native_1setDataSource(JNIEnv *env, jobject thiz, jstring path) {
+Java_com_example_miniplayer_MiniPlayer_native_1setDataSource(JNIEnv *env, jobject thiz, jlong mp, jstring path) {
     // TODO: implement native_setDataSource()
+    MiniPlayer *mpp = (MiniPlayer *)mp;
     const char *tpath = env->GetStringUTFChars(path, 0);
-    _path = av_strdup(tpath);
-    ALOGD("path:%s\n", _path);
+    mpp->_path = av_strdup(tpath);
+    ALOGD("path:%s\n", mpp->_path);
     env->ReleaseStringUTFChars(path, tpath);
     //AMEDIA_OK
 }
 
 extern "C"
 JNIEXPORT void JNICALL
-Java_com_example_miniplayer_MiniPlayer_native_1setSurface(JNIEnv *env, jobject thiz, jobject jsurface) {
+Java_com_example_miniplayer_MiniPlayer_native_1setSurface(JNIEnv *env, jobject thiz, jlong mp, jobject jsurface) {
     // TODO: implement native_setSurface()
     //jobject _surface = env->NewGlobalRef(jsurface);
     //_surface = surface;
@@ -68,12 +67,9 @@ Java_com_example_miniplayer_MiniPlayer_native_1setSurface(JNIEnv *env, jobject t
    // }
 
     //_surface = (void*) env->GetIntField(jsurface, field_surface);
-
-
-
-    native_window = ANativeWindow_fromSurface(env, jsurface);
-    _surface = native_window;
-    ALOGD("native_window:%p _surface:%p\n", native_window, _surface);
+    MiniPlayer *mpp = (MiniPlayer *)mp;
+    mpp->native_window = ANativeWindow_fromSurface(env, jsurface);
+    ALOGD("native_window:%p _surface:%p\n", mpp->native_window);
 }
 
 extern "C"
@@ -93,27 +89,33 @@ void ffp_log_callback_report(void *ptr, int level, const char *fmt, va_list vl)
     ALOGD("%s", line);
 }
 
-extern "C"
-JNIEXPORT jboolean JNICALL
-Java_com_example_miniplayer_MiniPlayer_native_1start(JNIEnv *env, jobject thiz) {
+jint JNI_OnLoad(JavaVM* vm, void* reserved)
+{
+    av_jni_set_java_vm(vm, NULL);
     //注册所有编解码器，解复用器，初始化网络
-    av_log_set_level(loglevel);
+    av_log_set_level(AV_LOG_INFO);
     av_log_set_callback(ffp_log_callback_report);
     av_register_all();
     avformat_network_init();
+    return JNI_VERSION_1_6;
+}
 
+extern "C"
+void *decode_thread(void *mp)
+{
+    MiniPlayer *mpp = (MiniPlayer *)mp;
     AVFormatContext *ic = NULL;
-    int ret = avformat_open_input(&ic, _path, NULL, NULL);
+    int ret = avformat_open_input(&ic, mpp->_path, NULL, NULL);
 
     if (0 == ret) {
-        ALOGD("avformat_open_input %s success!", _path);
+        ALOGD("avformat_open_input %s success!", mpp->_path);
     } else {
-        ALOGD("avformat_open_input failed! %s %s", _path, av_err2str(ret));
-        return false;
+        ALOGD("avformat_open_input failed! %s %s", mpp->_path, av_err2str(ret));
+        return NULL;
     }
     //查找音视频信息
     ret = avformat_find_stream_info(ic, NULL);
-    av_dump_format(ic, 0, _path, 0);
+    av_dump_format(ic, 0, mpp->_path, 0);
 
     //使用av_find_best_stream获取音视频stream index
     int audioStream = av_find_best_stream(ic, AVMEDIA_TYPE_AUDIO, -1, -1, NULL, 0);
@@ -123,7 +125,7 @@ Java_com_example_miniplayer_MiniPlayer_native_1start(JNIEnv *env, jobject thiz) 
     AVCodec *vcodec = avcodec_find_decoder(ic->streams[videoStream]->codecpar->codec_id);
     if (!vcodec) {
         ALOGD("avcodec_find_decoder video failed");
-        return 0;
+        return NULL;
     }
 
     //初始化解码器上下文
@@ -134,8 +136,99 @@ Java_com_example_miniplayer_MiniPlayer_native_1start(JNIEnv *env, jobject thiz) 
     ret = avcodec_open2(vc, NULL, NULL);  //AVCodec->init()
     if (0 != ret) {
         ALOGD("avcodec_open2 video failed");
-        return 0;
+        return NULL;
     }
+
+    AVPacket *pkt = av_packet_alloc();
+    AMediaCodec *codec = NULL;
+    AMediaFormat *format = AMediaFormat_new();
+    AMediaFormat_setString(format, "mime", "video/hevc");
+    AMediaFormat_setInt32(format, "height", 2160);
+    AMediaFormat_setInt32(format, "width", 3840);
+    codec = AMediaCodec_createCodecByName("OMX.qcom.video.decoder.hevc");
+
+    //codec = AMediaCodec_createDecoderByType("video/avc");
+    ALOGD("codec:%p", codec);
+    AMediaCodec_configure(codec, format, mpp->native_window, NULL, 0);
+    AMediaCodec_start(codec);
+
+    for (;;) {
+        ret = av_read_frame(ic, pkt);
+
+        if (0 != ret) {
+            ALOGD("file end!");
+            break;
+        }
+
+        AVCodecContext *cc = vc;
+        if (pkt->stream_index == videoStream) {
+            //ALOGD("read video packet");
+        }
+        else if (pkt->stream_index == audioStream) {
+            //ALOGD("read audio packet");
+            continue;
+        }
+        else {
+            ALOGD("unkown packet type! size:%d index:%d", pkt->size, pkt->stream_index);
+            continue;
+        }
+
+        //av_packet_split_side_data(pkt);
+        ALOGD("size:%d", pkt->size);
+//        ALOGD("split after size:%d", pkt->size);
+//        if(pkt->size > 0) {
+//            for(int i = pkt->size - 20; i < pkt->size; i++) {
+//                ALOGD("data[%d]:%02x", i, pkt->data[i]);
+//            }
+//        }
+        ssize_t bufidx = -1;
+        bufidx = AMediaCodec_dequeueInputBuffer(codec, 2000);
+        ALOGD("input buffer %zd", bufidx);
+        if (bufidx >= 0) {
+            size_t bufsize;
+            uint8_t* buf = AMediaCodec_getInputBuffer(codec, bufidx, &bufsize);
+            //ALOGD("bufsize:%d\n", bufsize);
+            memcpy(buf, pkt->data, pkt->size);
+            AMediaCodec_queueInputBuffer(codec, bufidx, 0, pkt->size, pkt->pts, 0);
+        }
+
+        AMediaCodecBufferInfo info;
+        ssize_t status = AMediaCodec_dequeueOutputBuffer(codec, &info, 0);
+        if (status >= 0) {
+            ALOGD("outindex:%zd", status);
+            if (info.flags & AMEDIACODEC_BUFFER_FLAG_END_OF_STREAM) {
+                ALOGD("output EOS");
+            }
+            AMediaCodec_releaseOutputBuffer(codec, status, info.size != 0);
+            // usleep(1000000);
+        } else if (status == AMEDIACODEC_INFO_OUTPUT_BUFFERS_CHANGED) {
+            ALOGD("output buffers changed");
+        } else if (status == AMEDIACODEC_INFO_OUTPUT_FORMAT_CHANGED) {
+            auto format = AMediaCodec_getOutputFormat(codec);
+            ALOGD("format changed to: %s", AMediaFormat_toString(format));
+            AMediaFormat_delete(format);
+            //while(1);
+        } else if (status == AMEDIACODEC_INFO_TRY_AGAIN_LATER) {
+            //ALOGD("no output buffer right now");
+        } else {
+            //ALOGD("unexpected info code: %zd", status);
+        }
+
+        usleep(20000);
+    }
+    AMediaCodec_delete(codec);
+}
+
+extern "C"
+JNIEXPORT jboolean JNICALL
+Java_com_example_miniplayer_MiniPlayer_native_1start(JNIEnv *env, jobject thiz, jlong mp) {
+    MiniPlayer *mpp = (MiniPlayer *)mp;
+
+    pthread_create(&mpp->decode_thread, NULL, decode_thread, mpp);
+
+    return true;
+
+
 
 
 //    //打开音频解码器
@@ -160,78 +253,12 @@ Java_com_example_miniplayer_MiniPlayer_native_1start(JNIEnv *env, jobject thiz) 
 //        ac = tac;
 //    }
 
-    AVPacket *pkt = av_packet_alloc();
-//    AVFrame *frame = av_frame_alloc();
-//    int vframeCount = 0;
-//    SwsContext *vctx = NULL;
-//    char *rgb = (char *) malloc(19200 * 1080 * 4);
-//    ANativeWindow_Buffer wbuf;
-    AMediaCodec *codec = NULL;
-    AMediaFormat *format = AMediaFormat_new();
-    AMediaFormat_setString(format, "mime", "video/avc");
-    AMediaFormat_setInt32(format, "height", 800);
-    AMediaFormat_setInt32(format, "width", 600);
+
     //AMediaFormat_setInt32(format, "decoder", 0);
     //AMediaFormat_setInt32(format, "max-input-size", 0);
 
-    codec = AMediaCodec_createCodecByName("OMX.qcom.video.decoder.avc");
-    //codec = AMediaCodec_createDecoderByType("video/avc");
-    ALOGD("codec:%p", codec);
-    AMediaCodec_configure(codec, format, native_window, NULL, 0);
-    AMediaCodec_start(codec);
+    //for(int i=0;i < 20; i++)
 
-    for (;;) {
-        ret = av_read_frame(ic, pkt);
-
-        if (0 != ret) {
-            ALOGD("file end!");
-            break;
-        }
-
-        AVCodecContext *cc = vc;
-        if (pkt->stream_index == videoStream) {
-            ALOGD("read video packet");
-        }
-        else if (pkt->stream_index == audioStream) {
-            ALOGD("read audio packet");
-            continue;
-        }
-        else {
-            ALOGD("unkown packet type!");
-        }
-
-
-        ssize_t bufidx = -1;
-        bufidx = AMediaCodec_dequeueInputBuffer(codec, 2000);
-        ALOGD("input buffer %zd", bufidx);
-        if (bufidx >= 0) {
-            size_t bufsize;
-            uint8_t* buf = AMediaCodec_getInputBuffer(codec, bufidx, &bufsize);
-            memcpy(buf, pkt->data, pkt->size);
-            AMediaCodec_queueInputBuffer(codec, bufidx, 0, pkt->size, pkt->pts, 0);
-        }
-
-        AMediaCodecBufferInfo info;
-        ssize_t status = AMediaCodec_dequeueOutputBuffer(codec, &info, 0);
-        if (status >= 0) {
-            if (info.flags & AMEDIACODEC_BUFFER_FLAG_END_OF_STREAM) {
-                ALOGD("output EOS");
-            }
-            AMediaCodec_releaseOutputBuffer(codec, status, info.size != 0);
-
-        } else if (status == AMEDIACODEC_INFO_OUTPUT_BUFFERS_CHANGED) {
-            ALOGD("output buffers changed");
-        } else if (status == AMEDIACODEC_INFO_OUTPUT_FORMAT_CHANGED) {
-            auto format = AMediaCodec_getOutputFormat(codec);
-            ALOGD("format changed to: %s", AMediaFormat_toString(format));
-            AMediaFormat_delete(format);
-        } else if (status == AMEDIACODEC_INFO_TRY_AGAIN_LATER) {
-            ALOGD("no output buffer right now");
-        } else {
-            ALOGD("unexpected info code: %zd", status);
-        }
-
-        usleep(30000);
 
         //AMediaFormat_getString
 //        //发送到线程中处理，pkt会被复制一份
@@ -287,7 +314,7 @@ Java_com_example_miniplayer_MiniPlayer_native_1start(JNIEnv *env, jobject thiz) 
 //            }
 //        }
 
-    }
+
 //    free(rgb);
 
     // convert Java string to UTF-8
@@ -340,12 +367,26 @@ Java_com_example_miniplayer_MiniPlayer_native_1start(JNIEnv *env, jobject thiz) 
 
 extern "C"
 JNIEXPORT void JNICALL
-Java_com_example_miniplayer_MiniPlayer_native_1release(JNIEnv *env, jobject thiz) {
+Java_com_example_miniplayer_MiniPlayer_native_1release(JNIEnv *env, jobject thiz, jlong mp) {
     // TODO: implement native_release()
-    ANativeWindow_release(native_window);
+    MiniPlayer *mpp = (MiniPlayer *)mp;
+    ANativeWindow_release(mpp->native_window);
 }extern "C"
+
 JNIEXPORT void JNICALL
-Java_com_example_miniplayer_MiniPlayer_native_1setLoglevel(JNIEnv *env, jobject thiz, jint level) {
+Java_com_example_miniplayer_MiniPlayer_native_1setLoglevel(JNIEnv *env, jobject thiz, jlong mp, jint level) {
     // TODO: implement native_setLoglevel()
-    loglevel = level;
+    MiniPlayer *mpp = (MiniPlayer *)mp;
+    mpp->loglevel = level;
+}extern "C"
+
+extern "C"
+JNIEXPORT void JNICALL
+Java_com_example_miniplayer_MiniPlayer_native_1setup(JNIEnv *env, jobject thiz) {
+    // TODO: implement native_setup()
+    jlong mp = (jlong)malloc(sizeof(MiniPlayer));
+    jclass clazz = env->FindClass("com/example/miniplayer/MiniPlayer");
+    //class, member_name, type， "J":long
+    jfieldID mNativeMiniPlayer = env->GetFieldID(clazz, "mNativeMiniPlayer", "J");
+    env->SetLongField(thiz, mNativeMiniPlayer, mp);
 }
