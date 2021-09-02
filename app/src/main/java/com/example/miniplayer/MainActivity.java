@@ -72,7 +72,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     // Used to load the 'native-lib' library on application startup.
     static {
         //在cmakelist中，native-lib依赖其它ffmpeg库，所以在load该库时ffmpeg库也会load
-        System.loadLibrary("native-lib");
+        System.loadLibrary("mini-player");
     }
 
     @Override
@@ -221,7 +221,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 //                miniPlayer.setDataSource("/sdcard/video/VR.ts");
                 //miniPlayer.native_setDataSource("/sdcard/cctv8.ts");
                 //miniPlayer.setLoglevel(miniPlayer.AV_LOG_INFO);
-                miniPlayer.setDataSource("/storage/emulated/0/DCIM/Camera/VID_20210503_093447.mp4");
+                miniPlayer.setDataSource("/sdcard/video/chip_data.ts");
                 miniPlayer.start();
                 break;
             }
@@ -233,7 +233,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 //miniPlayer.setDataSource("/sdcard/video/VR.ts");
                 //miniPlayer.native_setDataSource("/sdcard/cctv8.ts");
                 //miniPlayer.setLoglevel(miniPlayer.AV_LOG_INFO);
-                miniPlayer.setDataSource("/storage/emulated/0/vrtest/cctv8.ts");
+                miniPlayer.setDataSource("/sdcard/video/chip_data.ts");
                 miniPlayer.start();
                 break;
             }
@@ -248,7 +248,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                // miniPlayer.setDataSource("/sdcard/video/VR.ts");
                 //miniPlayer.native_setDataSource("/sdcard/cctv8.ts");
                 //miniPlayer.setLoglevel(miniPlayer.AV_LOG_INFO);
-                miniPlayer.setDataSource("/storage/emulated/0/vrtest/VRc.ts");
+                miniPlayer.setDataSource("/sdcard/video/chip_data.ts");
                 miniPlayer.start();
 //                break;
 

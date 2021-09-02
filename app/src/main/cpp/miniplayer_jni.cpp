@@ -151,8 +151,8 @@ void *decode_thread(void *mp)
     AMediaCodec *codec = NULL;
     AMediaFormat *format = AMediaFormat_new();
     AMediaFormat_setString(format, "mime", "video/avc");
-    AMediaFormat_setInt32(format, "height", 4320);
-    AMediaFormat_setInt32(format, "width", 7680);
+    AMediaFormat_setInt32(format, "height", 600);
+    AMediaFormat_setInt32(format, "width", 800);
     //OMX.qcom.video.decoder.avc
     codec = AMediaCodec_createCodecByName("OMX.qcom.video.decoder.avc");
 
@@ -182,8 +182,12 @@ void *decode_thread(void *mp)
             ALOGD("unkown packet type! size:%d index:%d", pkt->size, pkt->stream_index);
             continue;
         }
-
-        av_packet_split_side_data(pkt);
+        unsigned char *p = pkt->data;
+        int msize = pkt->size;
+        ALOGD("data[0]:%02x %02x %02x %02x %02x %02x %02x %02x data[%d]:%02x %02x %02x %02x %02x %02x %02x %02x\n", \
+            p[0], p[1], p[2], p[3], p[4], p[5], p[6], p[7], msize-8, p[msize - 8], p[msize - 7], p[msize - 6], p[msize - 5], p[msize - 4] \
+            , p[msize - 3], p[msize - 2], p[msize - 1]);
+//        av_packet_split_side_data(pkt);
         ALOGD("size:%d", pkt->size);
 //        ALOGD("split after size:%d", pkt->size);
 //        if(pkt->size > 0) {
@@ -197,7 +201,8 @@ void *decode_thread(void *mp)
         if (bufidx >= 0) {
             size_t bufsize;
             uint8_t* buf = AMediaCodec_getInputBuffer(codec, bufidx, &bufsize);
-            ALOGD("bufsize:%d\n", bufsize);
+            //ALOGD("bufsize:%d\n", bufsize);
+
             memcpy(buf, pkt->data, pkt->size);
             AMediaCodec_queueInputBuffer(codec, bufidx, 0, pkt->size, pkt->pts, 0);
         }
