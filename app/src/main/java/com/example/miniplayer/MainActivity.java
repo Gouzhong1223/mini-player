@@ -34,6 +34,7 @@ import java.util.Locale;
 
 import static android.media.MediaCodec.BUFFER_FLAG_CODEC_CONFIG;
 
+
 public class MainActivity extends AppCompatActivity implements View.OnClickListener{
     String TAG = "MiniPlayer";
     private static final int WRITE_STORAGE_REQUEST_CODE = 100;
@@ -53,6 +54,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     Button pauseButton;
     Button startButton;
     SeekBar seekBar;
+
     private SeekBar.OnSeekBarChangeListener onSeekBarChangeListener = new SeekBar.OnSeekBarChangeListener() {
         @Override
         public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
@@ -216,24 +218,28 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             case R.id.restart:{
                 Log.d(TAG, "restart click");
                 MiniPlayer miniPlayer = new MiniPlayer();
-                miniPlayer.native_setup();
+                miniPlayer.init();
+                Log.d(TAG, "restart click 1");
                 miniPlayer.setSurface(surfaceHolder1.getSurface());
-//                miniPlayer.setDataSource("/sdcard/video/VR.ts");
-                //miniPlayer.native_setDataSource("/sdcard/cctv8.ts");
-                //miniPlayer.setLoglevel(miniPlayer.AV_LOG_INFO);
-                miniPlayer.setDataSource("/sdcard/video/chip_data.ts");
+                Log.d(TAG, "restart click 2");
+////                miniPlayer.setDataSource("/sdcard/video/VR.ts");
+//                //miniPlayer.native_setDataSource("/sdcard/cctv8.ts");
+//                //miniPlayer.setLoglevel(miniPlayer.AV_LOG_INFO);
+                miniPlayer.setDataSource("/sdcard/video/test.mp4");
+                Log.d(TAG, "restart click 3");
                 miniPlayer.start();
+                Log.d(TAG, "a start");
                 break;
             }
             case R.id.pause: {
-                Log.d(TAG, "pause click");
                 MiniPlayer miniPlayer = new MiniPlayer();
-                miniPlayer.native_setup();
+                miniPlayer.init();
+//                miniPlayer.native_setup();
                 miniPlayer.setSurface(surfaceHolder2.getSurface());
                 //miniPlayer.setDataSource("/sdcard/video/VR.ts");
                 //miniPlayer.native_setDataSource("/sdcard/cctv8.ts");
                 //miniPlayer.setLoglevel(miniPlayer.AV_LOG_INFO);
-                miniPlayer.setDataSource("/sdcard/video/chip_data.ts");
+                miniPlayer.setDataSource("/sdcard/video/test.flv");
                 miniPlayer.start();
                 break;
             }
@@ -243,12 +249,13 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                     break;
                 }
                 MiniPlayer miniPlayer = new MiniPlayer();
-                miniPlayer.native_setup();
+                miniPlayer.init();
+
                 miniPlayer.setSurface(surfaceHolder3.getSurface());
                // miniPlayer.setDataSource("/sdcard/video/VR.ts");
                 //miniPlayer.native_setDataSource("/sdcard/cctv8.ts");
-                //miniPlayer.setLoglevel(miniPlayer.AV_LOG_INFO);
-                miniPlayer.setDataSource("/sdcard/video/chip_data.ts");
+                miniPlayer.setLoglevel(miniPlayer.AV_LOG_INFO);
+                miniPlayer.setDataSource("/sdcard/video/test1.flv");
                 miniPlayer.start();
 //                break;
 
